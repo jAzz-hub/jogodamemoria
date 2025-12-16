@@ -32,3 +32,6 @@ replay_pid*
 
 # macOS system files
 .DS_Store
+/memoria-common/target/
+/memoria-server/target/
+/memoria-client/target/

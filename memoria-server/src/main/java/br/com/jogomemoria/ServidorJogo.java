@@ -6,10 +6,10 @@ import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.Collections;
-        
+
 public class ServidorJogo extends UnicastRemoteObject implements IMemoriaJogo {
 
-    private final int[][] matrizGabarito = new int[3][4]; // Matriz resultado (não muda após inicialização)
+        private final int[][] matrizGabarito = new int[3][4]; // Matriz resultado (não muda após inicialização)
     private final int[][] matrizJogadas = new int[3][4];  // Matriz visível (atualizada durante o jogo)
     private int jogadoresConectados = 0;
     private int jogadorAtual = 1; // Começa com o jogador 1
@@ -82,7 +82,37 @@ public class ServidorJogo extends UnicastRemoteObject implements IMemoriaJogo {
         }
     }
 
-    // Os outros métodos da interface serão implementados em seguida
-    // (registrarJogador, obterTabuleiro, obterVez, obterMensagemEstado)
-
+    
+    
+    @Override
+    public synchronized int registrarJogador() throws RemoteException {
+        if (jogadoresConectados >= 2) {
+            return -1; // Já tem dois jogadores
+        }
+        jogadoresConectados++;
+        System.out.println("🎮 Jogador " + jogadoresConectados + " conectado.");
+        return jogadoresConectados;
+    }
+    
+    @Override
+    public synchronized int[][] obterTabuleiro() throws RemoteException {
+        int[][] copia = new int[3][4];
+        for (int i = 0; i < 3; i++) {
+            System.arraycopy(matrizJogadas[i], 0, copia[i], 0, 4);
+        }
+        return copia;
+    }
+    
+    @Override
+    public synchronized int obterVez() throws RemoteException {
+        return jogadorAtual;
+    }
+    
+    @Override
+    public synchronized String obterMensagemEstado() throws RemoteException {
+        if (jogadoresConectados < 2) {
+            return "⏳ Aguardando outro jogador... (" + jogadoresConectados + "/2)";
+        }
+        return "🎯 Vez do jogador " + jogadorAtual;
+    }
 }
