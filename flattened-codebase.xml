@@ -36,6 +36,9 @@ replay_pid*
 
 # macOS system files
 .DS_Store
+/memoria-common/target/
+/memoria-server/target/
+/memoria-client/target/
     ]]>
   </file>
   <file path="README.md">
@@ -70,165 +73,167 @@ Jogo da memória entre jogadores conectados à um mesmo middleware.
 - Tratar eventos de rede e desconexões
     ]]>
   </file>
+  <file path="flatten.sh">
+    <![CDATA[
+#!/bin/bash
+
+{
+  echo '<?xml version="1.0" encoding="UTF-8"?>'
+  echo '<files>'
+
+  git ls-files -z | while IFS= read -rd '' file; do
+    # Ignora se não for arquivo, for binário ou for um lockfile
+    [[ -f "$file" ]] || continue
+    file -b --mime-type "$file" | grep -q '^text/' || continue
+    [[ "$file" == *package-lock.json || "$file" == *uv.lock ]] && continue
+
+    printf '  <file path="%s">\n    <![CDATA[\n' "$file"
+    cat "$file"
+    echo '    ]]>
+  </file>'
+  done
+
+  echo '</files>'
+} > flattened-codebase.xml
+
+echo "Arquivo XML gerado: flattened-codebase.xml"
+    ]]>
+  </file>
+  <file path="flattened-codebase.xml">
+    <![CDATA[
+    ]]>
+  </file>
   <file path="memoria-client/pom.xml">
     <![CDATA[
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>com.mycompany</groupId>
-    <artifactId>memoria-client</artifactId>
-    <version>1.0-SNAPSHOT</version>
-    <packaging>jar</packaging>
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.release>24</maven.compiler.release>
-        <exec.mainClass>com.mycompany.memoria.client.MemoriaClient</exec.mainClass>
-    </properties>
-    <dependencies>
-    <dependency>
+    
+    <parent>
         <groupId>br.com.jogomemoria</groupId>
-        <artifactId>memoria-common</artifactId>
+        <artifactId>jogo-da-memoria</artifactId>
         <version>1.0-SNAPSHOT</version>
-    </dependency>
-</dependencies>
+    </parent>
+    
+    <artifactId>memoria-client</artifactId>
+    <packaging>jar</packaging>
+    
+    <dependencies>
+        <dependency>
+            <groupId>br.com.jogomemoria</groupId>
+            <artifactId>memoria-common</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
 </project>    ]]>
   </file>
-  <file path="memoria-client/src/main/java/com/mycompany/memoria/client/MemoriaClient.java">
+  <file path="memoria-client/src/main/java/br/com/jogomemoria/MemoriaClient.java">
     <![CDATA[
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- */
+package br.com.jogomemoria;
 
-package com.mycompany.memoria.client;
+import br.com.jogomemoria.IMemoriaJogo;
+import java.rmi.Naming;
 
-/**
- *
- * @author joaog
- */
 public class MemoriaClient {
-
     public static void main(String[] args) {
-        System.out.println("Hello World!");
+        try {
+            IMemoriaJogo jogo = (IMemoriaJogo) Naming.lookup("rmi://localhost/MemoriaJogo");
+            int meuId = jogo.registrarJogador();
+            System.out.println("Conectado como jogador " + meuId);
+            
+            // Testar conexão
+            int vez = jogo.obterVez();
+            String estado = jogo.obterMensagemEstado();
+            System.out.println("Vez: " + vez + " - Estado: " + estado);
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
     }
-}
-    ]]>
+}    ]]>
   </file>
-  <file path="memoria-client/src/main/java/jogomemoria/IMemoriaJogo.java">
+  <file path="memoria-common/pom.xml">
     <![CDATA[
-package jogomemoria;
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    
+    <parent>
+        <groupId>br.com.jogomemoria</groupId>
+        <artifactId>jogo-da-memoria</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+    
+    <artifactId>memoria-common</artifactId>
+    <packaging>jar</packaging>
+</project>    ]]>
+  </file>
+  <file path="memoria-common/src/main/java/br/com/jogomemoria/IMemoriaJogo.java">
+    <![CDATA[
+package br.com.jogomemoria;
 
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 
 public interface IMemoriaJogo extends Remote {
-
-    /** Registra um novo jogador e retorna seu ID (1 ou 2) */
     int registrarJogador() throws RemoteException;
-
-    /** Realiza a jogada de um jogador com duas posições */
     boolean jogar(int jogadorId, int linha1, int col1, int linha2, int col2) 
             throws RemoteException;
-
-    /** Retorna a matriz atual de jogadas visíveis (0 = oculto, >0 = figura revelada) */
     int[][] obterTabuleiro() throws RemoteException;
-
-    /** Retorna o ID do jogador da vez atual */
     int obterVez() throws RemoteException;
-
-    /** Retorna mensagem de estado do jogo (ex: "Aguardando jogador", "Fim de jogo") */
     String obterMensagemEstado() throws RemoteException;
-}
-    ]]>
-  </file>
-  <file path="memoria-commom/pom.xml">
-    <![CDATA[
-<?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
-    <modelVersion>4.0.0</modelVersion>
-    <groupId>com.mycompany</groupId>
-    <artifactId>memoria-commom</artifactId>
-    <version>1.0-SNAPSHOT</version>
-    <packaging>jar</packaging>
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.release>24</maven.compiler.release>
-        <exec.mainClass>com.mycompany.memoria.commom.MemoriaCommom</exec.mainClass>
-    </properties>
-    <dependencies>
-    <modules>
-        <module>memoria-common</module>
-        <module>memoria-server</module>
-        <module>memoria-client</module>
-    </modules>
-</dependencies>
-</project>    ]]>
-  </file>
-  <file path="memoria-commom/src/main/java/com/mycompany/memoria/commom/MemoriaCommom.java">
-    <![CDATA[
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- */
-
-package com.mycompany.memoria.commom;
-
-/**
- *
- * @author joaog
- */
-public class MemoriaCommom {
-
-    public static void main(String[] args) {
-        System.out.println("Hello World!");
-    }
-}
-    ]]>
+}    ]]>
   </file>
   <file path="memoria-server/pom.xml">
     <![CDATA[
 <?xml version="1.0" encoding="UTF-8"?>
-<project xmlns="http://maven.apache.org/POM/4.0.0" xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance" xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 http://maven.apache.org/xsd/maven-4.0.0.xsd">
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
     <modelVersion>4.0.0</modelVersion>
-    <groupId>com.mycompany</groupId>
+    
+    <parent>
+        <groupId>br.com.jogomemoria</groupId>
+        <artifactId>jogo-da-memoria</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+    
     <artifactId>memoria-server</artifactId>
-    <version>1.0-SNAPSHOT</version>
     <packaging>jar</packaging>
-    <properties>
-        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
-        <maven.compiler.release>24</maven.compiler.release>
-        <exec.mainClass>com.mycompany.memoria.server.MemoriaServer</exec.mainClass>
-    </properties>
+    
     <dependencies>
-    <modules>
-        <module>memoria-common</module>
-        <module>memoria-server</module>
-        <module>memoria-client</module>
-    </modules>
-</dependencies>
+        <dependency>
+            <groupId>br.com.jogomemoria</groupId>
+            <artifactId>memoria-common</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
 </project>    ]]>
   </file>
   <file path="memoria-server/src/main/java/br/com/jogomemoria/MainServer.java">
     <![CDATA[
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- * Click nbfs://nbhost/SystemFileSystem/Templates/Classes/Class.java to edit this template
- */
 package br.com.jogomemoria;
 
 import java.rmi.Naming;
 import java.rmi.registry.LocateRegistry;
 
-/**
- *
- * @author joaog
- */
 public class MainServer {
     public static void main(String[] args) {
         try {
+            System.setProperty("java.rmi.server.hostname", "localhost");
             LocateRegistry.createRegistry(1099);
             IMemoriaJogo service = new ServidorJogo();
             Naming.rebind("rmi://localhost/MemoriaJogo", service);
-            System.out.println("Servidor RMI iniciado na porta 1099");
+            System.out.println("✅ Servidor RMI iniciado na porta 1099");
         } catch (Exception e) {
+            System.err.println("❌ Erro ao iniciar servidor:");
             e.printStackTrace();
         }
     }
@@ -244,10 +249,10 @@ import java.rmi.RemoteException;
 import java.rmi.server.UnicastRemoteObject;
 import java.util.ArrayList;
 import java.util.Collections;
-        
+
 public class ServidorJogo extends UnicastRemoteObject implements IMemoriaJogo {
 
-    private final int[][] matrizGabarito = new int[3][4]; // Matriz resultado (não muda após inicialização)
+        private final int[][] matrizGabarito = new int[3][4]; // Matriz resultado (não muda após inicialização)
     private final int[][] matrizJogadas = new int[3][4];  // Matriz visível (atualizada durante o jogo)
     private int jogadoresConectados = 0;
     private int jogadorAtual = 1; // Começa com o jogador 1
@@ -320,29 +325,66 @@ public class ServidorJogo extends UnicastRemoteObject implements IMemoriaJogo {
         }
     }
 
-    // Os outros métodos da interface serão implementados em seguida
-    // (registrarJogador, obterTabuleiro, obterVez, obterMensagemEstado)
-
+    
+    
+    @Override
+    public synchronized int registrarJogador() throws RemoteException {
+        if (jogadoresConectados >= 2) {
+            return -1; // Já tem dois jogadores
+        }
+        jogadoresConectados++;
+        System.out.println("🎮 Jogador " + jogadoresConectados + " conectado.");
+        return jogadoresConectados;
+    }
+    
+    @Override
+    public synchronized int[][] obterTabuleiro() throws RemoteException {
+        int[][] copia = new int[3][4];
+        for (int i = 0; i < 3; i++) {
+            System.arraycopy(matrizJogadas[i], 0, copia[i], 0, 4);
+        }
+        return copia;
+    }
+    
+    @Override
+    public synchronized int obterVez() throws RemoteException {
+        return jogadorAtual;
+    }
+    
+    @Override
+    public synchronized String obterMensagemEstado() throws RemoteException {
+        if (jogadoresConectados < 2) {
+            return "⏳ Aguardando outro jogador... (" + jogadoresConectados + "/2)";
+        }
+        return "🎯 Vez do jogador " + jogadorAtual;
+    }
 }    ]]>
   </file>
-  <file path="memoria-server/src/main/java/com/mycompany/memoria/server/MemoriaServer.java">
+  <file path="pom.xml">
     <![CDATA[
-/*
- * Click nbfs://nbhost/SystemFileSystem/Templates/Licenses/license-default.txt to change this license
- */
-
-package com.mycompany.memoria.server;
-
-/**
- *
- * @author joaog
- */
-public class MemoriaServer {
-
-    public static void main(String[] args) {
-        System.out.println("Hello World!");
-    }
-}
-    ]]>
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    
+    <groupId>br.com.jogomemoria</groupId>
+    <artifactId>jogo-da-memoria</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    
+    <modules>
+        <module>memoria-common</module>
+        <module>memoria-server</module>
+        <module>memoria-client</module>
+    </modules>
+    
+    <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+</project>    ]]>
   </file>
 </files>
