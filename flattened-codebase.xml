@@ -1,0 +1,390 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<files>
+  <file path=".gitignore">
+    <![CDATA[
+# Compiled class file
+*.class
+
+# Log file
+*.log
+
+# BlueJ files
+*.ctxt
+
+# Mobile Tools for Java (J2ME)
+.mtj.tmp/
+
+# Package Files #
+*.jar
+*.war
+*.nar
+*.ear
+*.zip
+*.tar.gz
+*.rar
+
+# virtual machine crash logs, see http://www.java.com/en/download/help/error_hotspot.xml
+hs_err_pid*
+replay_pid*
+
+# Build and distribution directories
+/build/
+/dist/
+
+# NetBeans private directory
+/nbproject/private/
+
+# macOS system files
+.DS_Store
+/memoria-common/target/
+/memoria-server/target/
+/memoria-client/target/
+    ]]>
+  </file>
+  <file path="README.md">
+    <![CDATA[
+# Jogo da Memória
+
+Jogo da memória entre jogadores conectados à um mesmo middleware.
+
+## Tarefas de Desenvolvimento
+
+### Task 1: Interface RMI + Servidor Esqueleto
+- Definir a interface RMI com os métodos remotos necessários
+- Implementar o servidor esqueleto (skeleton) para gerenciar conexões
+- Configurar o registro RMI para disponibilizar os serviços
+
+### Task 2: Lógica do Jogo no Servidor
+- Implementar a lógica do jogo da memória no servidor
+- Gerenciar o estado do tabuleiro e as cartas
+- Implementar validação de jogadas e pontuação
+- Controlar turnos entre jogadores
+
+### Task 3: Interface Gráfica no Cliente
+- Desenvolver a interface gráfica do jogo
+- Criar o tabuleiro visual com as cartas
+- Implementar animações e feedback visual
+- Exibir informações de pontuação e turno atual
+
+### Task 4: Lógica de Conexão e Turnos no Cliente
+- Implementar cliente RMI para conexão com o servidor
+- Gerenciar comunicação cliente-servidor
+- Sincronizar turnos entre jogadores
+- Tratar eventos de rede e desconexões
+    ]]>
+  </file>
+  <file path="flatten.sh">
+    <![CDATA[
+#!/bin/bash
+
+{
+  echo '<?xml version="1.0" encoding="UTF-8"?>'
+  echo '<files>'
+
+  git ls-files -z | while IFS= read -rd '' file; do
+    # Ignora se não for arquivo, for binário ou for um lockfile
+    [[ -f "$file" ]] || continue
+    file -b --mime-type "$file" | grep -q '^text/' || continue
+    [[ "$file" == *package-lock.json || "$file" == *uv.lock ]] && continue
+
+    printf '  <file path="%s">\n    <![CDATA[\n' "$file"
+    cat "$file"
+    echo '    ]]>
+  </file>'
+  done
+
+  echo '</files>'
+} > flattened-codebase.xml
+
+echo "Arquivo XML gerado: flattened-codebase.xml"
+    ]]>
+  </file>
+  <file path="flattened-codebase.xml">
+    <![CDATA[
+    ]]>
+  </file>
+  <file path="memoria-client/pom.xml">
+    <![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    
+    <parent>
+        <groupId>br.com.jogomemoria</groupId>
+        <artifactId>jogo-da-memoria</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+    
+    <artifactId>memoria-client</artifactId>
+    <packaging>jar</packaging>
+    
+    <dependencies>
+        <dependency>
+            <groupId>br.com.jogomemoria</groupId>
+            <artifactId>memoria-common</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
+</project>    ]]>
+  </file>
+  <file path="memoria-client/src/main/java/br/com/jogomemoria/MemoriaClient.java">
+    <![CDATA[
+package br.com.jogomemoria;
+
+import br.com.jogomemoria.IMemoriaJogo;
+import java.rmi.Naming;
+
+public class MemoriaClient {
+    public static void main(String[] args) {
+        try {
+            IMemoriaJogo jogo = (IMemoriaJogo) Naming.lookup("rmi://localhost/MemoriaJogo");
+            int meuId = jogo.registrarJogador();
+            System.out.println("Conectado como jogador " + meuId);
+            
+            // Testar conexão
+            int vez = jogo.obterVez();
+            String estado = jogo.obterMensagemEstado();
+            System.out.println("Vez: " + vez + " - Estado: " + estado);
+            
+        } catch (Exception e) {
+            e.printStackTrace();
+        }
+    }
+}    ]]>
+  </file>
+  <file path="memoria-common/pom.xml">
+    <![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    
+    <parent>
+        <groupId>br.com.jogomemoria</groupId>
+        <artifactId>jogo-da-memoria</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+    
+    <artifactId>memoria-common</artifactId>
+    <packaging>jar</packaging>
+</project>    ]]>
+  </file>
+  <file path="memoria-common/src/main/java/br/com/jogomemoria/IMemoriaJogo.java">
+    <![CDATA[
+package br.com.jogomemoria;
+
+import java.rmi.Remote;
+import java.rmi.RemoteException;
+
+public interface IMemoriaJogo extends Remote {
+    int registrarJogador() throws RemoteException;
+    boolean jogar(int jogadorId, int linha1, int col1, int linha2, int col2) 
+            throws RemoteException;
+    int[][] obterTabuleiro() throws RemoteException;
+    int obterVez() throws RemoteException;
+    String obterMensagemEstado() throws RemoteException;
+}    ]]>
+  </file>
+  <file path="memoria-server/pom.xml">
+    <![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    
+    <parent>
+        <groupId>br.com.jogomemoria</groupId>
+        <artifactId>jogo-da-memoria</artifactId>
+        <version>1.0-SNAPSHOT</version>
+    </parent>
+    
+    <artifactId>memoria-server</artifactId>
+    <packaging>jar</packaging>
+    
+    <dependencies>
+        <dependency>
+            <groupId>br.com.jogomemoria</groupId>
+            <artifactId>memoria-common</artifactId>
+            <version>1.0-SNAPSHOT</version>
+        </dependency>
+    </dependencies>
+</project>    ]]>
+  </file>
+  <file path="memoria-server/src/main/java/br/com/jogomemoria/MainServer.java">
+    <![CDATA[
+package br.com.jogomemoria;
+
+import java.rmi.Naming;
+import java.rmi.registry.LocateRegistry;
+
+public class MainServer {
+    public static void main(String[] args) {
+        try {
+            System.setProperty("java.rmi.server.hostname", "localhost");
+            LocateRegistry.createRegistry(1099);
+            IMemoriaJogo service = new ServidorJogo();
+            Naming.rebind("rmi://localhost/MemoriaJogo", service);
+            System.out.println("✅ Servidor RMI iniciado na porta 1099");
+        } catch (Exception e) {
+            System.err.println("❌ Erro ao iniciar servidor:");
+            e.printStackTrace();
+        }
+    }
+}    ]]>
+  </file>
+  <file path="memoria-server/src/main/java/br/com/jogomemoria/ServidorJogo.java">
+    <![CDATA[
+package br.com.jogomemoria;
+
+import java.io.FileWriter;
+import java.io.PrintWriter;
+import java.rmi.RemoteException;
+import java.rmi.server.UnicastRemoteObject;
+import java.util.ArrayList;
+import java.util.Collections;
+
+public class ServidorJogo extends UnicastRemoteObject implements IMemoriaJogo {
+
+        private final int[][] matrizGabarito = new int[3][4]; // Matriz resultado (não muda após inicialização)
+    private final int[][] matrizJogadas = new int[3][4];  // Matriz visível (atualizada durante o jogo)
+    private int jogadoresConectados = 0;
+    private int jogadorAtual = 1; // Começa com o jogador 1
+
+    private static final String PATH_RESULTADO = "C:\\Dados\\MATRIZES_RESULTADO.txt";
+    private static final String PATH_JOGADAS = "C:\\Dados\\JOGADAS.txt";
+
+    public ServidorJogo() throws RemoteException {
+        super();
+        inicializarJogo();
+    }
+
+    private void inicializarJogo() {
+        // Gera 6 pares (números de 1 a 6, duas vezes cada)
+        ArrayList<Integer> numeros = new ArrayList<>();
+        for (int i = 1; i <= 6; i++) {
+            numeros.add(i);
+            numeros.add(i);
+        }
+        Collections.shuffle(numeros);
+
+        // Preenche a matriz gabarito
+        int index = 0;
+        for (int i = 0; i < 3; i++) {
+            for (int j = 0; j < 4; j++) {
+                matrizGabarito[i][j] = numeros.get(index);
+                matrizJogadas[i][j] = 0; // Tudo oculto no início
+                index++;
+            }
+        }
+
+        // Salva as duas matrizes em arquivos TXT
+        salvarMatrizEmArquivo(PATH_RESULTADO, matrizGabarito);
+        salvarMatrizEmArquivo(PATH_JOGADAS, matrizJogadas);
+    }
+
+    private void salvarMatrizEmArquivo(String caminho, int[][] matriz) {
+        try (PrintWriter writer = new PrintWriter(new FileWriter(caminho))) {
+            for (int[] linha : matriz) {
+                for (int j = 0; j < linha.length; j++) {
+                    writer.print(linha[j]);
+                    if (j < linha.length - 1) writer.print(" ");
+                }
+                writer.println();
+            }
+        } catch (Exception e) {
+            System.err.println("Erro ao salvar arquivo " + caminho + ": " + e.getMessage());
+        }
+    }
+
+    @Override
+    public synchronized boolean jogar(int jogadorId, int linha1, int col1, int linha2, int col2) throws RemoteException {
+        // Verifica se é a vez do jogador
+        if (jogadorId != jogadorAtual) {
+            return false; // Jogada inválida (não é a vez dele)
+        }
+
+        // Verifica se formou par
+        if (matrizGabarito[linha1][col1] == matrizGabarito[linha2][col2]) {
+            // Acertou: revela permanentemente as duas posições
+            matrizJogadas[linha1][col1] = matrizGabarito[linha1][col1];
+            matrizJogadas[linha2][col2] = matrizGabarito[linha2][col2];
+            salvarMatrizEmArquivo(PATH_JOGADAS, matrizJogadas);
+            // Mantém a vez (regra comum: quem acerta joga novamente)
+            return true;
+        } else {
+            // Errou: passa a vez para o outro jogador
+            jogadorAtual = (jogadorAtual == 1) ? 2 : 1;
+            return false;
+        }
+    }
+
+    
+    
+    @Override
+    public synchronized int registrarJogador() throws RemoteException {
+        if (jogadoresConectados >= 2) {
+            return -1; // Já tem dois jogadores
+        }
+        jogadoresConectados++;
+        System.out.println("🎮 Jogador " + jogadoresConectados + " conectado.");
+        return jogadoresConectados;
+    }
+    
+    @Override
+    public synchronized int[][] obterTabuleiro() throws RemoteException {
+        int[][] copia = new int[3][4];
+        for (int i = 0; i < 3; i++) {
+            System.arraycopy(matrizJogadas[i], 0, copia[i], 0, 4);
+        }
+        return copia;
+    }
+    
+    @Override
+    public synchronized int obterVez() throws RemoteException {
+        return jogadorAtual;
+    }
+    
+    @Override
+    public synchronized String obterMensagemEstado() throws RemoteException {
+        if (jogadoresConectados < 2) {
+            return "⏳ Aguardando outro jogador... (" + jogadoresConectados + "/2)";
+        }
+        return "🎯 Vez do jogador " + jogadorAtual;
+    }
+}    ]]>
+  </file>
+  <file path="pom.xml">
+    <![CDATA[
+<?xml version="1.0" encoding="UTF-8"?>
+<project xmlns="http://maven.apache.org/POM/4.0.0"
+         xmlns:xsi="http://www.w3.org/2001/XMLSchema-instance"
+         xsi:schemaLocation="http://maven.apache.org/POM/4.0.0 
+         http://maven.apache.org/xsd/maven-4.0.0.xsd">
+    <modelVersion>4.0.0</modelVersion>
+    
+    <groupId>br.com.jogomemoria</groupId>
+    <artifactId>jogo-da-memoria</artifactId>
+    <version>1.0-SNAPSHOT</version>
+    <packaging>pom</packaging>
+    
+    <modules>
+        <module>memoria-common</module>
+        <module>memoria-server</module>
+        <module>memoria-client</module>
+    </modules>
+    
+    <properties>
+        <maven.compiler.source>1.8</maven.compiler.source>
+        <maven.compiler.target>1.8</maven.compiler.target>
+        <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
+    </properties>
+</project>    ]]>
+  </file>
+</files>
